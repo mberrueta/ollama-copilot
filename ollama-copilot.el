@@ -19,7 +19,12 @@
   :type 'integer
   :group 'ollama-copilot)
 
-(defcustom ollama-copilot-ollama-host "localhost"
+(defcustom ollama-copilot-model "llama:3"
+  "Host of ollama server."
+  :type 'string
+  :group 'ollama-copilot)
+
+(defcustom ollama-copilot-host "localhost"
   "Host of ollama server."
   :type 'string
   :group 'ollama-copilot)
@@ -55,10 +60,10 @@ Writing comments, test code, or English explanations is forbidden.
   "Call the Ollama LLM API with the given PROMPT."
   (let* ((url-request-method "POST")
          (url-request-extra-headers '(("Content-Type" . "application/json")))
-         (url-request-data (encode-coding-string (json-encode `(("model" . "llama3")
+         (url-request-data (encode-coding-string (json-encode `(("model" . ollama-copilot-model)
                                                                 ("stream" . :json-false)
                                                                 ("prompt" . ,prompt))) 'utf-8))
-         (url (format "http://%s:11434/api/generate" ollama-copilot-ollama-host)))
+         (url (format "http://%s:11434/api/generate" ollama-copilot-host)))
     (with-current-buffer (url-retrieve-synchronously url)
       (goto-char url-http-end-of-headers)
       (let* ((response (json-read))
@@ -76,7 +81,28 @@ Writing comments, test code, or English explanations is forbidden.
       (save-excursion
         (insert generated-text)))))
 
+(defun ollama-copilot-list-models ()
+  "List available models from the Ollama LLM API."
+  (interactive)
+  (let* ((url-request-method "GET")
+         (url (format "http://%s:11434/api/tags" ollama-copilot-ollama-host)))
+    (with-current-buffer (url-retrieve-synchronously url)
+      (goto-char url-http-end-of-headers)
+      (let* ((response-string (decode-coding-string (buffer-substring-no-properties (point) (point-max)) 'utf-8))
+             (response (json-read-from-string response-string))
+             (models (append (cdr (assoc 'models response)) nil)) ;; Convert vector to list
+             (model-info (mapcar (lambda (model)
+                                   (let ((name (cdr (assoc 'name model)))
+                                         (parameter-size (cdr (assoc 'parameter_size (cdr (assoc 'details model))))))
+                                     (format "%s (%s tokens)" name parameter-size)))
+                                 models))
+             (model-info-str (mapconcat 'identity model-info ", ")))
+        (kill-buffer (current-buffer))
+        (message model-info-str)))))
+
+
 (global-set-key (kbd "C-c o") 'ollama-copilot-complete-code)
+(global-set-key (kbd "C-c l") 'ollama-copilot-list-models)
 
 (provide 'ollama-copilot)
 
