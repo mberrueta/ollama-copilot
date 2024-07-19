@@ -20,13 +20,6 @@ module Greetings
         puts "Bonjour, #{@name}!"
       when 'german'
         puts "Hallo, #{@name}!"
-      when 'italian'
-        puts "Ciao, #{@name}!"
-      when 'portuguese'
-        puts "OlÃ¡, #{@name}!"
-      else
-        puts "Hello, #{@name}!"
-      end
     end
   end
 
@@ -37,7 +30,6 @@ module Greetings
 
   # Call Open AI api to ask translation
   def call(to_language)
-
 
   end
 end
