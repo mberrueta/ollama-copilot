@@ -26,7 +26,7 @@
   :type 'integer
   :group 'ollama-copilot)
 
-(defcustom ollama-copilot-model "llama3"
+(defcustom ollama-copilot-model "llama3.1"
   "Host of ollama server."
   :type 'string
   :group 'ollama-copilot)
@@ -51,6 +51,18 @@ Writing comments, test code, or English explanations is forbidden.
   :type 'string
   :group 'ollama-copilot)
 
+(defcustom ollama-copilot-llm-refactor-prompt
+  "You are an Emacs code generator.
+I need assistance refactoring the following code in in the buffer %s.
+
+%s
+
+Apply the best practices to improve it. Use the SOLID principles
+"
+  "Default prompt to use when calling the LLM for code completion."
+  :type 'string
+  :group 'ollama-copilot)
+
 (defun ollama-copilot-complete-code ()
   "Generate code completion using the Ollama LLM."
   (interactive)
@@ -63,11 +75,26 @@ Writing comments, test code, or English explanations is forbidden.
       (save-excursion
         (insert generated-text)))))
 
+(defun ollama-copilot-refactor ()
+  "Generate code using LLM and prompt user to replace the selected code."
+  (interactive)
+  (let* ((original-code (buffer-substring (region-beginning) (region-end)))
+         (prompt (format ollama-copilot-llm-refactor-prompt (buffer-name) original-code))
+         (generated-code (_call-llm prompt)))
+    ;; Display the generated code in a temporary buffer
+    (with-temp-buffer-window "*Generated Code*" nil nil (princ generated-code))
+    (if (yes-or-no-p "Do you want to replace the selected code with the generated code?")
+        (progn
+          (delete-region (region-beginning) (region-end))
+          (insert generated-code)
+          (message "Code replaced."))
+      (message "Operation cancelled."))))
+
 (defun ollama-copilot-list-models ()
   "List available models from the Ollama LLM API."
   (interactive)
   (let* ((url-request-method "GET")
-         (url (format "%s/api/tags" ollama-copilot-host)))
+ (url (format "%s/api/tags" ollama-copilot-host)))
     (with-current-buffer (url-retrieve-synchronously url)
       (goto-char url-http-end-of-headers)
       (let* ((response-string (decode-coding-string (buffer-substring-no-properties (point) (point-max)) 'utf-8))
@@ -79,6 +106,7 @@ Writing comments, test code, or English explanations is forbidden.
         (message "Local models: %s" model-names-str)))))
 
 (global-set-key (kbd "C-c o") 'ollama-copilot-complete-code)
+(global-set-key (kbd "C-c r") 'ollama-copilot-refactor)
 (global-set-key (kbd "C-c l") 'ollama-copilot-list-models)
 
 (provide 'ollama-copilot)
@@ -103,7 +131,7 @@ Writing comments, test code, or English explanations is forbidden.
          (url-request-extra-headers '(("Content-Type" . "application/json")))
          (url-request-data (encode-coding-string (json-encode `(("model" . ,ollama-copilot-model)
                                                                 ("stream" . :json-false)
-                                                                ("prompt" . ,prompt))) 'utf-8))
+                                                        ("prompt" . ,prompt))) 'utf-8))
          (url (format "%s/api/generate" ollama-copilot-host)))
     ;; (message url-request-data)
     (with-current-buffer (url-retrieve-synchronously url)

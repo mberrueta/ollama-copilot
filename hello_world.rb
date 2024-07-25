@@ -26,6 +26,7 @@ module Greetings
   def get_current_date
     date = DateTime.now.strftime("%Y-%m-%d %H:%M:%S")
     puts "Current date and time: #{date}"
+
   end
 
   # Call Open AI api to ask translation
